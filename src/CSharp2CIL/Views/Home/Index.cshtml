@@ -5,21 +5,35 @@
 	<title>CSharp2CIL</title>
 	<link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" rel="stylesheet">
 	<link href="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.12.0/codemirror.min.css" rel="stylesheet">
+    <link href="~/Content/site.css" rel="stylesheet"/>
 </head>
 <body>
-	<button onclick="parse()">Parse</button>
+	<nav class="navbar navbar-default">
+        <button class="btn btn-default" onclick="parse()">Parse</button>
+    </nav>
 	<div class="container">
-		<div class="row">
-			<div class="col-md-6">
-				<h2>C#</h2>
-				<textarea id="csharp"></textarea>
-
-			</div>
-			<div class="col-md-6">
-				<h2>CIL</h2>
-				<textarea id="cil"></textarea>
-			</div>
-		</div>
+        <div class="row content">
+            <div class="col-md-6">
+                <h2 class="text-center">C#</h2>
+                <textarea id="csharp">
+class A
+{
+  public static void Main()
+  {
+    int a=4;
+    if (a==3)
+    {
+      int b = 5;
+    }
+  }
+}
+                </textarea>
+            </div>
+            <div class="col-md-6">
+                <h2 class="text-center">CIL</h2>
+                <textarea id="cil"></textarea>
+            </div>
+        </div>
 	</div>
 	<script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.12.0/codemirror.js"></script>
 	<script src="//cdnjs.cloudflare.com/ajax/libs/codemirror/4.12.0/mode/clike/clike.min.js"></script>

@@ -78,6 +78,7 @@
     <Reference Include="System.Configuration" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Content\site.css" />
     <Content Include="Global.asax" />
     <Content Include="Scripts\csharp2cil.js" />
     <Content Include="Web.config" />

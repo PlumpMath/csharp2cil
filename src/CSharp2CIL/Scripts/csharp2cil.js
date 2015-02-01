@@ -2,10 +2,12 @@
 	mode: "text/x-csharp",
 	lineNumbers: true
 });
+editor.setSize(null, '97%');
 
 var editor2 = CodeMirror.fromTextArea(document.getElementById('cil'), {
-	lineNumbers: true
+    lineNumbers: true
 });
+editor2.setSize(null, '97%');
 
 var cilLines = [];
 function parse() {
