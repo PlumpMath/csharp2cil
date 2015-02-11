@@ -1,0 +1,25 @@
+﻿html, body, .col-md-6{
+    height: 100%;
+}
+.container {
+    height: 94%;
+}
+.header {
+    height:5%
+}
+.content {
+    height:95%;
+}
+.CodeMirror {
+    border: 1px solid #ccc;
+    height: 97%;
+}
+
+button {
+    margin-top: 0.5%;
+    margin-left: 463px;
+}
+
+.navbar {
+    margin-bottom: initial;
+}
