@@ -28,16 +28,23 @@ namespace CSharp2CIL.Controllers
             {
                 var cilType = new CilType
                 {
-                    StartLine = type.GetLocation().GetLineSpan().StartLinePosition.Line,
-                    EndLine = type.GetLocation().GetLineSpan().EndLinePosition.Line,
+                    LineNumbers = new[]{
+                        type.GetLocation().GetLineSpan().StartLinePosition.Line,
+                        type.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
+                        type.GetLocation().GetLineSpan().EndLinePosition.Line
+                    },
                     Name = type.Identifier.ToString()
                 };
+                
                 cilTypes.Add(cilType);
                 var methods = type.Members.OfType<MethodDeclarationSyntax>().Select(method => new CilMethod
                 {
                     Name = method.Identifier.ToString(),
-                    StartLine = method.GetLocation().GetLineSpan().StartLinePosition.Line,
-                    EndLine = method.GetLocation().GetLineSpan().EndLinePosition.Line,
+                    LineNumbers = new[]{
+                        method.GetLocation().GetLineSpan().StartLinePosition.Line,
+                        method.Body.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
+                        method.GetLocation().GetLineSpan().EndLinePosition.Line
+                    } 
                 });
 
                 cilType.CilMethods = methods.ToList();

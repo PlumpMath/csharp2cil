@@ -14,14 +14,14 @@ function setEditorText(cilTypes) {
     cilTypes.forEach(function (type) {
         text += '.class ' + type.Name + '\n';
         text += '{\n';
-        editorLines.push([type.StartLine, type.EndLine]);
-        editorLines.push([type.StartLine, type.EndLine]);
+        editorLines.push(type.LineNumbers);
+        editorLines.push(type.LineNumbers);
 
         type.CilMethods.forEach(function (method) {
             text += '    .method ' + method.Name + '\n';
             text += '    {\n';
-            editorLines.push([method.StartLine, method.EndLine]);
-            editorLines.push([method.StartLine, method.EndLine]);
+            editorLines.push(method.LineNumbers);
+            editorLines.push(method.LineNumbers);
 
             method.CilLineInsturctions.forEach(function (block) {
                 block.Instructions.forEach(function (instruction) {
@@ -31,11 +31,11 @@ function setEditorText(cilTypes) {
             });
 
             text += '    }\n';
-            editorLines.push([method.StartLine, method.EndLine]);
+            editorLines.push(method.LineNumbers);
         });
 
         text += '}\n';
-        editorLines.push([type.StartLine, type.EndLine]);
+        editorLines.push(type.LineNumbers);
     });
 
     cilEditor.setValue(text);
@@ -90,7 +90,10 @@ function parse() {
             setEditorText(types);
             setHandlers();
         } else {
-            cilEditor.setValue('error');
+            cilEditor.setValue('syntax error');
         }
+    })
+    .fail(function () {
+        cilEditor.setValue('network problems');
     });
 }
