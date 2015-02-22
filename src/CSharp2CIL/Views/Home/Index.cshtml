@@ -8,9 +8,11 @@
     <link href="~/Content/site.css" rel="stylesheet"/>
 </head>
 <body>
+    <span id="forkongithub"><a href="https://github.com/vkairys/csharp2cil">Fork me on GitHub</a></span>
 	<nav class="navbar navbar-default">
-        <button class="btn btn-default" onclick="parse()">Parse</button>
+        <button class="btn btn-default">Parse</button>
     </nav>
+   
 	<div class="container">
         <div class="row content">
             <div class="col-md-6">
@@ -18,14 +20,11 @@
                 <textarea id="csharp">
 class A
 {
-  int GetNumber()
+  void Add()
   {
-    int b = 4;
-    if (b > 3)
-    {
-     b = 4;
-    }
-    return b;
+    int a = 1;
+    int b = 2;
+    int c = a + b;
   }
 }</textarea>
             </div>

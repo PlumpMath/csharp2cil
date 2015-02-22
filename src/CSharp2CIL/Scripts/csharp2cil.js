@@ -1,99 +1,89 @@
-﻿var csharpEditor = CodeMirror.fromTextArea(document.getElementById('csharp'), {
-    mode: 'text/x-csharp',
-    lineNumbers: true
-});
+﻿(function () {
+    'use strict';
 
-var cilEditor = CodeMirror.fromTextArea(document.getElementById('cil'), {
-    lineNumbers: true
-});
-
-var editorLines = [];
-
-function setEditorText(cilTypes) {
-    var text = '';
-    cilTypes.forEach(function (type) {
-        text += '.class ' + type.Name + '\n';
-        text += '{\n';
-        editorLines.push(type.LineNumbers);
-        editorLines.push(type.LineNumbers);
-
-        type.CilMethods.forEach(function (method) {
-            text += '    .method ' + method.Name + '\n';
-            text += '    {\n';
-            editorLines.push(method.LineNumbers);
-            editorLines.push(method.LineNumbers);
-
-            method.CilLineInsturctions.forEach(function (block) {
-                block.Instructions.forEach(function (instruction) {
-                    text += '     ' + instruction + '\n';
-                    editorLines.push([block.Line - 1]);
-                });
-            });
-
-            text += '    }\n';
-            editorLines.push(method.LineNumbers);
-        });
-
-        text += '}\n';
-        editorLines.push(type.LineNumbers);
+    var csharpEditor = CodeMirror.fromTextArea(document.getElementById('csharp'), {
+        mode: 'text/x-csharp',
+        lineNumbers: true
     });
 
-    cilEditor.setValue(text);
-}
+    var cilEditor = CodeMirror.fromTextArea(document.getElementById('cil'), {
+        lineNumbers: true
+    });
 
-function setHandlers() {
-    var highlightedLines = [];
-    var csharpLines = $('.CodeMirror-code').eq(0).children();
-    var cilLines = $('.CodeMirror-code').eq(1).children();
-
-    function highlight(line) {
-        line.css({ 'background-color': '#00a855' });
-        highlightedLines.push(line);
-    }
-
-    function removeHighlights() {
-        highlightedLines.forEach(function (line) {
-            line.css({ 'background-color': 'white' });
-        });
-        highlightedLines = [];
-    }
-
-    csharpLines.hover(function () {
-        var currentHover = $(this);
-        var lineNumber = currentHover.index();
-        highlight(currentHover);
-
-        editorLines.forEach(function (editorLine, i) {
-            if (editorLine.indexOf(lineNumber) !== -1) {
-                highlight(cilLines.eq(i));
+    $('button').click(function () {
+        $.post('/home/parse', 'cscode=' + encodeURIComponent(csharpEditor.getValue()), function (types) {
+            if (types !== 'error') {
+                var cilCode = parseCilCode(types);
+                cilEditor.setValue(cilCode.text);
+                setHandlers(cilCode.lines);
+            } else {
+                cilEditor.setValue('syntax error');
             }
+        })
+        .fail(function () {
+            cilEditor.setValue('network problems');
         });
-    }, removeHighlights);
-
-    cilLines.hover(function () {
-        var currentHover = $(this);
-        var lineNumber = currentHover.index();
-        highlight(currentHover);
-
-        if (editorLines[lineNumber] !== undefined) {
-            editorLines[lineNumber].forEach(function (editorLine) {
-                highlight(csharpLines.eq(editorLine));
-            });
-        };
-    }, removeHighlights);
-}
-
-function parse() {
-    $.post('/Home/Parse', 'csCode=' + encodeURIComponent(csharpEditor.getValue()), function (types) {
-        if (types !== 'error') {
-            editorLines = [];
-            setEditorText(types);
-            setHandlers();
-        } else {
-            cilEditor.setValue('syntax error');
-        }
-    })
-    .fail(function () {
-        cilEditor.setValue('network problems');
     });
-}
+
+    function parseCilCode(cilTypes) {
+        var lines = [];
+        var text = '';
+        cilTypes.forEach(function (type) {
+            text += '.class ' + type.Name + '\n';
+            lines.push(type.Lines);
+            text += '{\n';
+            lines.push(type.Lines);
+
+            type.Methods.forEach(function (method) {
+                text += '    .method ' + method.Name + '\n';
+                lines.push(method.Lines);
+                text += '    {\n';
+                lines.push(method.Lines);
+
+                method.BodyLines.forEach(function (block) {
+                    block.Instructions.forEach(function (instruction) {
+                        text += '     ' + instruction + '\n';
+                        lines.push([block.Line - 1]);
+                    });
+                });
+
+                text += '    }\n';
+                lines.push(method.Lines);
+            });
+
+            text += '}\n';
+            lines.push(type.Lines);
+        });
+        return { text: text, lines: lines };
+    }
+
+    function setHandlers(lines) {
+        var csharpLines = $('.CodeMirror-code').eq(0).children();
+        var cilLines = $('.CodeMirror-code').eq(1).children();
+        var highlightedLines = [];
+
+        function highlight(line) {
+            line.css({ 'background-color': '#17A697' });
+            highlightedLines.push(line);
+        }
+
+        function removeHighlights() {
+            highlightedLines.forEach(function (line) {
+                line.css({ 'background-color': 'white' });
+            });
+            highlightedLines = [];
+        }
+
+        csharpLines.hover(function () {
+            var currentHover = $(this);
+            var lineNumber = currentHover.index();
+            highlight(currentHover);
+
+            lines.forEach(function (line, i) {
+                if (line.indexOf(lineNumber) !== -1) {
+                    highlight(cilLines.eq(i));
+                }
+            });
+        }, removeHighlights);
+    }
+}());

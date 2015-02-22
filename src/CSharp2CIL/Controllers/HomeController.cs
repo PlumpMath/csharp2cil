@@ -21,79 +21,74 @@ namespace CSharp2CIL.Controllers
         public ActionResult Parse(string csCode)
         {
             var tree = CSharpSyntaxTree.ParseText(csCode);
-            var csTypes = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>();
-
-            var cilTypes = new List<CilType>();
-            foreach (var type in csTypes)
+            if (!tree.GetDiagnostics().Any(d => d.IsWarningAsError))
             {
-                var cilType = new CilType
+                var csTypes = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>();
+
+                var cilTypes = csTypes.Select(type => new CSharp2CIL.Models.Type
                 {
-                    LineNumbers = new[]{
+                    Name = type.Identifier.ToString(),
+                    Lines = new[]{
                         type.GetLocation().GetLineSpan().StartLinePosition.Line,
                         type.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
-                        type.GetLocation().GetLineSpan().EndLinePosition.Line
+                        type.CloseBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line
                     },
-                    Name = type.Identifier.ToString()
-                };
-                
-                cilTypes.Add(cilType);
-                var methods = type.Members.OfType<MethodDeclarationSyntax>().Select(method => new CilMethod
-                {
-                    Name = method.Identifier.ToString(),
-                    LineNumbers = new[]{
-                        method.GetLocation().GetLineSpan().StartLinePosition.Line,
-                        method.Body.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
-                        method.GetLocation().GetLineSpan().EndLinePosition.Line
-                    } 
-                });
-
-                cilType.CilMethods = methods.ToList();
-            }
-
-            var compilation = CSharpCompilation.Create("temp", new[] { tree },
-                new[] { MetadataReference.CreateFromAssembly(typeof(object).Assembly) }, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-            var stream = new MemoryStream();
-            var pdbStream = new MemoryStream();
-            var result = compilation.Emit(stream, pdbStream);
-
-            if (result.Success)
-            {
-                stream.Seek(0, SeekOrigin.Begin);
-
-                var readerParameters = new ReaderParameters { ReadSymbols = true, SymbolStream = pdbStream };
-                var assemblyDefinition = AssemblyDefinition.ReadAssembly(stream, readerParameters);
-
-                foreach (var cilType in assemblyDefinition.MainModule.Types)
-                {
-                    var codeType = cilTypes.FirstOrDefault(t => t.Name == cilType.Name);
-                    if (codeType != null)
+                    Methods = type.Members.OfType<MethodDeclarationSyntax>().Select(method => new Method
                     {
-                        foreach (var cilMethod in cilType.Methods)
+                        Name = method.Identifier.ToString(),
+                        Lines = new[]{
+                            method.GetLocation().GetLineSpan().StartLinePosition.Line,
+                            method.Body.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
+                            method.Body.CloseBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line
+                        }
+                    }).ToList()
+                }).ToList();
+
+
+                var compilation = CSharpCompilation.Create("temp", new[] { tree },
+                    new[] { MetadataReference.CreateFromAssembly(typeof(object).Assembly) }, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+                var stream = new MemoryStream();
+                var pdbStream = new MemoryStream();
+                var result = compilation.Emit(stream, pdbStream);
+
+                if (result.Success)
+                {
+                    stream.Seek(0, SeekOrigin.Begin);
+
+                    var readerParameters = new ReaderParameters { ReadSymbols = true, SymbolStream = pdbStream };
+                    var assemblyDefinition = AssemblyDefinition.ReadAssembly(stream, readerParameters);
+
+                    foreach (var cilType in assemblyDefinition.MainModule.Types)
+                    {
+                        var codeType = cilTypes.FirstOrDefault(t => t.Name == cilType.Name);
+                        if (codeType != null)
                         {
-                            var codeMethod = codeType.CilMethods.FirstOrDefault(m => m.Name == cilMethod.Name);
-                            if (codeMethod != null)
+                            foreach (var cilMethod in cilType.Methods)
                             {
-                                codeMethod.CilLineInsturctions = new List<CilLineInstructions>();
-                                CilLineInstructions bodyBlock = null;
-                                foreach (var instruction in cilMethod.Body.Instructions)
+                                var codeMethod = codeType.Methods.FirstOrDefault(m => m.Name == cilMethod.Name);
+                                if (codeMethod != null)
                                 {
-                                    if (instruction.ToString().Substring(instruction.ToString().Length - 3) == "nop") continue;
-                                    if (instruction.SequencePoint != null && instruction.SequencePoint.StartLine < 100)
+                                    codeMethod.BodyLines = new List<BodyLine>();
+                                    BodyLine bodyLine = null;
+                                    foreach (var instruction in cilMethod.Body.Instructions)
                                     {
-                                        bodyBlock = new CilLineInstructions
+                                        if (instruction.SequencePoint != null && instruction.SequencePoint.StartLine < 100) //new code line
                                         {
-                                            Line = instruction.SequencePoint.StartLine,
-                                            Instructions = new List<string>()
-                                        };
-                                        codeMethod.CilLineInsturctions.Add(bodyBlock);
+                                            bodyLine = new BodyLine
+                                            {
+                                                Line = instruction.SequencePoint.StartLine,
+                                                Instructions = new List<string>()
+                                            };
+                                            codeMethod.BodyLines.Add(bodyLine);
+                                        }
+                                        bodyLine.Instructions.Add(instruction.ToString());
                                     }
-                                    bodyBlock.Instructions.Add(instruction.ToString());
                                 }
                             }
                         }
                     }
+                    return Json(cilTypes);
                 }
-                return Json(cilTypes);
             }
 
             return Json("error");

@@ -2,21 +2,21 @@
 
 namespace CSharp2CIL.Models
 {
-	public class CilType
+	public class Type
 	{
 		public string Name { get; set; }
-        public int[] LineNumbers { get; set; }
-		public List<CilMethod> CilMethods { get; set; }
+        public int[] Lines { get; set; }
+		public List<Method> Methods { get; set; }
 	}
 
-	public class CilMethod
+	public class Method
 	{
 		public string Name { get; set; }
-        public int[] LineNumbers { get; set; }
-		public List<CilLineInstructions> CilLineInsturctions { get; set; }
+        public int[] Lines { get; set; }
+        public List<BodyLine> BodyLines { get; set; }
 	}
 
-	public class CilLineInstructions
+	public class BodyLine
 	{
 		public int Line { get; set; }
 		public List<string> Instructions { get; set; }
