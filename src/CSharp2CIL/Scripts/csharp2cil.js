@@ -11,6 +11,8 @@
     });
 
     $('button').click(function () {
+        var spinner = new Spinner({ length: 20, width: 10, radius: 30 }).spin($('body').get(0));
+        $('#fade').show();
         $.post('/home/parse', 'cscode=' + encodeURIComponent(csharpEditor.getValue()), function (types) {
             if (types !== 'error') {
                 var cilCode = parseCilCode(types);
@@ -22,6 +24,10 @@
         })
         .fail(function () {
             cilEditor.setValue('network problems');
+        })
+        .always(function () {
+            spinner.stop();
+            $('#fade').hide();
         });
     });
 
