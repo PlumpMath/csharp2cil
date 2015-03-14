@@ -8,7 +8,7 @@
 
     var cilEditor = CodeMirror.fromTextArea(document.getElementById('cil'), {
         lineNumbers: true,
-        readOnly: "nocursor"
+        readOnly: 'nocursor'
     });
 
     $('button').click(function () {
