@@ -5,32 +5,12 @@
         mode: 'text/x-csharp',
         lineNumbers: true
     });
-
     var cilEditor = CodeMirror.fromTextArea(document.getElementById('cil'), {
         lineNumbers: true,
         readOnly: 'nocursor'
     });
-
-    $('button').click(function () {
-        var spinner = new Spinner({ length: 20, width: 10, radius: 30 }).spin($('body').get(0));
-        $('#fade').show();
-        $.post('/home/parse', 'cscode=' + encodeURIComponent(csharpEditor.getValue()), function (types) {
-            if (types !== 'error') {
-                var cilCode = parseCilCode(types);
-                cilEditor.setValue(cilCode.text);
-                setHandlers(cilCode.lines);
-            } else {
-                cilEditor.setValue('syntax error');
-            }
-        })
-        .fail(function () {
-            cilEditor.setValue('network problems');
-        })
-        .always(function () {
-            spinner.stop();
-            $('#fade').hide();
-        });
-    });
+    var highlightedLines = [];
+    var csharpLines = [];
 
     function parseCilCode(cilTypes) {
         var lines = [];
@@ -64,22 +44,21 @@
         return { text: text, lines: lines };
     }
 
+    function highlight(line) {
+        line.css({ 'background-color': '#17A697' });
+        highlightedLines.push(line);
+    }
+
+    function removeHighlights() {
+        highlightedLines.forEach(function (line) {
+            line.css({ 'background-color': 'white' });
+        });
+        highlightedLines = [];
+    }
+
     function setHandlers(lines) {
-        var csharpLines = $('.CodeMirror-code').eq(0).children();
         var cilLines = $('.CodeMirror-code').eq(1).children();
-        var highlightedLines = [];
-
-        function highlight(line) {
-            line.css({ 'background-color': '#17A697' });
-            highlightedLines.push(line);
-        }
-
-        function removeHighlights() {
-            highlightedLines.forEach(function (line) {
-                line.css({ 'background-color': 'white' });
-            });
-            highlightedLines = [];
-        }
+        csharpLines = $('.CodeMirror-code').eq(0).children();
 
         csharpLines.hover(function () {
             var currentHover = $(this);
@@ -93,4 +72,29 @@
             });
         }, removeHighlights);
     }
+
+    csharpEditor.on('change', function () {
+        if (highlightedLines.length > 0) {
+            removeHighlights();
+            csharpLines.unbind('mouseenter mouseleave');
+        };
+    });
+
+    $('button').click(function () {
+        var spinner = new Spinner({ length: 20, width: 10, radius: 30 }).spin($('body').get(0));
+        $('#fade').show();
+
+        $.post('/home/parse', 'cscode=' + encodeURIComponent(csharpEditor.getValue()), function (types) {
+            if (types !== 'error') {
+                var cilCode = parseCilCode(types);
+                cilEditor.setValue(cilCode.text);
+                setHandlers(cilCode.lines);
+            } else {
+                cilEditor.setValue('syntax error');
+            };
+
+            spinner.stop();
+            $('#fade').hide();
+        });
+    });
 }());
