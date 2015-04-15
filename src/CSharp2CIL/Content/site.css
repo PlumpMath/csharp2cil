@@ -24,6 +24,10 @@ button {
     margin-bottom: initial;
 }
 
+.highlight {
+    background:#17A697;
+}
+
 #fade {
     display: none;
     position: absolute;

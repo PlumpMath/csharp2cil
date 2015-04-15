@@ -1,100 +1,126 @@
 ﻿(function () {
     'use strict';
 
-    var csharpEditor = CodeMirror.fromTextArea(document.getElementById('csharp'), {
-        mode: 'text/x-csharp',
-        lineNumbers: true
-    });
-    var cilEditor = CodeMirror.fromTextArea(document.getElementById('cil'), {
-        lineNumbers: true,
-        readOnly: 'nocursor'
-    });
-    var highlightedLines = [];
-    var csharpLines = [];
-
     function parseCilCode(cilTypes) {
-        var lines = [];
+        var lines = []; //each index represents charp code line number, each value is cil line number
         var text = '';
+        var i = 0;
+
         cilTypes.forEach(function (type) {
+            var typeLines = [i++, i++];
+            lines[type.Lines[0]] = typeLines;
+            lines[type.Lines[1]] = typeLines;
             text += '.class ' + type.Name + '\n';
-            lines.push(type.Lines);
             text += '{\n';
-            lines.push(type.Lines);
 
             type.Methods.forEach(function (method) {
+                var methodLines = [i++, i++];
+                lines[method.Lines[0]] = methodLines;
+                lines[method.Lines[1]] = methodLines;
                 text += '    .method ' + method.Name + '\n';
-                lines.push(method.Lines);
                 text += '    {\n';
-                lines.push(method.Lines);
 
                 method.BodyLines.forEach(function (block) {
+                    if (lines[block.Line - 1] === undefined) {
+                        lines[block.Line - 1] = [];
+                    }
                     block.Instructions.forEach(function (instruction) {
+                        lines[block.Line - 1].push(i++);
                         text += '     ' + instruction + '\n';
-                        lines.push([block.Line - 1]);
                     });
                 });
 
+                lines[method.Lines[2]] = methodLines;
+                methodLines.push(i++);
                 text += '    }\n';
-                lines.push(method.Lines);
             });
 
+            typeLines.push(i++);
+            lines[type.Lines[2]] = typeLines;
             text += '}\n';
-            lines.push(type.Lines);
         });
-        return { text: text, lines: lines };
-    }
-
-    function highlight(line) {
-        line.css({ 'background-color': '#17A697' });
-        highlightedLines.push(line);
-    }
-
-    function removeHighlights() {
-        highlightedLines.forEach(function (line) {
-            line.css({ 'background-color': 'white' });
-        });
-        highlightedLines = [];
-    }
-
-    function setHandlers(lines) {
-        var cilLines = $('.CodeMirror-code').eq(1).children();
-        csharpLines = $('.CodeMirror-code').eq(0).children();
-
-        csharpLines.hover(function () {
-            var currentHover = $(this);
-            var lineNumber = currentHover.index();
-            highlight(currentHover);
-
-            lines.forEach(function (line, i) {
-                if (line.indexOf(lineNumber) !== -1) {
-                    highlight(cilLines.eq(i));
-                }
-            });
-        }, removeHighlights);
-    }
-
-    csharpEditor.on('change', function () {
-        if (highlightedLines.length > 0) {
-            removeHighlights();
-            csharpLines.unbind('mouseenter mouseleave');
+        return {
+            text: text,
+            lines: lines
         };
-    });
+    }
 
-    $('button').click(function () {
-        var spinner = new Spinner({ length: 20, width: 10, radius: 30 }).spin($('body').get(0));
-        $('#fade').show();
+    var App = {
+        init: function () {
+            this.csharpEditor = CodeMirror.fromTextArea(document.getElementById('csharp'), {
+                mode: 'text/x-csharp',
+                lineNumbers: true
+            });
+            this.cilEditor = CodeMirror.fromTextArea(document.getElementById('cil'), {
+                lineNumbers: true,
+                readOnly: 'nocursor'
+            });
 
-        $.post('/home/parse', 'cscode=' + encodeURIComponent(csharpEditor.getValue()), function (types) {
-            if (types !== 'error') {
-                var cilCode = parseCilCode(types);
-                cilEditor.setValue(cilCode.text);
-                setHandlers(cilCode.lines);
-            } else {
-                cilEditor.setValue('syntax error');
-            };
+            this.lines = [];
+            this.highlightedLine = 0;
 
-            spinner.stop();
-            $('#fade').hide();
-        });
-    });
+            this.csharpEditor.on('change', this.removeHighlightHandler.bind(this));
+            $('button').on('click', this.parse.bind(this));
+        },
+
+        highlight: function (index) {
+            this.csharpEditor.addLineClass(index, 'background', 'highlight');
+
+            var cilLinesNumbers = this.lines[index];
+            for (var lineNumber in cilLinesNumbers) {
+                this.cilEditor.addLineClass(cilLinesNumbers[lineNumber], 'background', 'highlight');
+            }
+            this.higlighted = index;
+        },
+
+        removeHighlight: function () {
+            this.csharpEditor.removeLineClass(this.higlighted, 'background', 'highlight');
+
+            var cilLinesNumbers = this.lines[this.higlighted];
+            for (var lineNumber in cilLinesNumbers) {
+                this.cilEditor.removeLineClass(cilLinesNumbers[lineNumber], 'background', 'highlight');
+            }
+        },
+
+        removeHighlightHandler: function () {
+            this.removeHighlight();
+            $('.CodeMirror-code >', this.csharpEditor.getWrapperElement()).unbind('mouseenter mouseleave');
+        },
+
+        parse: function () {
+            var spinner = new Spinner({
+                length: 20,
+                width: 10,
+                radius: 30
+            }).spin($('body').get(0));
+            var self = this;
+            var csCode = encodeURIComponent(this.csharpEditor.getValue());
+
+            $('#fade').show();
+            $.post('/home/parse', 'cscode=' + csCode, function (types) {
+                if (types !== 'error') {
+                    var cilCode = parseCilCode(types);
+
+                    this.cilEditor.setValue(cilCode.text);
+                    this.lines = cilCode.lines;
+
+                    var csharpLines = $('.CodeMirror-code >', this.csharpEditor.getWrapperElement());
+                    csharpLines.on('mouseenter', function () {
+                        var i = $(this).index();
+                        self.highlight(i);
+                    });
+
+                    csharpLines.on('mouseleave', this.removeHighlight.bind(this));
+
+                } else {
+                    this.cilEditor.setValue('syntax error');
+                }
+
+                spinner.stop();
+                $('#fade').hide();
+            }.bind(this));
+        }
+    };
+
+    App.init();
 }());
