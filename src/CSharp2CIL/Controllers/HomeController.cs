@@ -75,6 +75,7 @@ namespace CSharp2CIL.Controllers
                         type.CloseBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line
                     }
                 };
+                cilType.Methods = new List<Method>();
                 foreach (var method in type.Members.OfType<MethodDeclarationSyntax>())
                 {
                     cilType.Methods.Add(new Method
