@@ -1,18 +1,18 @@
 ﻿using CSharp2CIL.Models;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Mono.Cecil;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Web.Mvc;
-using Microsoft.CodeAnalysis;
-using Mono.Cecil.Cil;
+using CSharp2CIL.Services;
+using CSharp2CIL.ViewModels;
 
 namespace CSharp2CIL.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly CSharpService _cSharpService = new CSharpService();
+        private readonly PEService _peService = new PEService();
+
         public ActionResult Index()
         {
             return View();
@@ -21,100 +21,39 @@ namespace CSharp2CIL.Controllers
         [HttpPost]
         public ActionResult Parse(string csCode)
         {
-            var tree = CSharpSyntaxTree.ParseText(csCode);
-            if (!tree.GetDiagnostics().Any(d => d.IsWarningAsError))
+            if (_cSharpService.IsValid(csCode))
             {
-                var compilation = CSharpCompilation.Create("temp", new[] { tree },
-                    new[] { MetadataReference.CreateFromAssembly(typeof(object).Assembly) }, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-                var stream = new MemoryStream();
-                var pdbStream = new MemoryStream();
-                var result = compilation.Emit(stream, pdbStream);
-
-                if (result.Success)
+                List<PEType> peTypes;
+                using (Stream peStream = new MemoryStream(), pdbStream = new MemoryStream())
                 {
-                    var declarations = ParseDeclarations(tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>());
-                    stream.Seek(0, SeekOrigin.Begin);
-
-                    var readerParameters = new ReaderParameters { ReadSymbols = true, SymbolStream = pdbStream };
-                    var assemblyDefinition = AssemblyDefinition.ReadAssembly(stream, readerParameters);
-
-                    foreach (var cilType in assemblyDefinition.MainModule.Types)
-                    {
-                        var codeType = declarations.FirstOrDefault(t => t.Name == cilType.Name);
-                        if (codeType != null)
-                        {
-                            foreach (var cilMethod in cilType.Methods)
-                            {
-                                var codeMethod = codeType.Methods.FirstOrDefault(m => m.Name == cilMethod.Name);
-                                if (codeMethod != null)
-                                {
-                                    codeMethod.BodyLines = ParseInstructions(cilMethod.Body.Instructions);
-                                }
-                            }
-                        }
-                    }
-                    return Json(declarations);
+                    _cSharpService.Compile(csCode, peStream, pdbStream);
+                    peTypes = _peService.ParseTypes(peStream, pdbStream);
                 }
+
+                var csharpTypes = _cSharpService.ParseTypes(csCode);
+                var model = csharpTypes.Select(d => new TypeViewModel
+                {
+                    Name = d.Name,
+                    Lines = d.Lines,
+                    Methods = d.Methods.Select(m => new Method
+                    {
+                        Name = m.Name,
+                        Lines = m.Lines,
+                        BodyLines =
+                            peTypes.First(i => i.Name == d.Name)
+                                .Methods.First(pem => pem.Name == m.Name)
+                                .BodyLines.Select(b => new BodyLine
+                                {
+                                    Line = b.Line,
+                                    Instructions = b.Instructions
+                                })
+                    })
+                });
+
+                return Json(model);
             }
 
             return Json("error");
         }
-
-        private IEnumerable<CSharp2CIL.Models.Type> ParseDeclarations(IEnumerable<TypeDeclarationSyntax> typeDeclarations)
-        {
-            var types = new List<CSharp2CIL.Models.Type>();
-            foreach (var type in typeDeclarations)
-            {
-                var cilType = new CSharp2CIL.Models.Type
-                {
-                    Name = type.Identifier.ToString(),
-                    Lines = new[]
-                    {
-                        type.GetLocation().GetLineSpan().StartLinePosition.Line,
-                        type.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
-                        type.CloseBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line
-                    }
-                };
-                cilType.Methods = new List<Method>();
-                foreach (var method in type.Members.OfType<MethodDeclarationSyntax>())
-                {
-                    cilType.Methods.Add(new Method
-                    {
-                        Name = method.Identifier.ToString(),
-                        Lines = new[]
-                        {
-                            method.GetLocation().GetLineSpan().StartLinePosition.Line,
-                            method.Body.OpenBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line,
-                            method.Body.CloseBraceToken.GetLocation().GetLineSpan().StartLinePosition.Line
-                        }
-                    });
-                }
-                types.Add(cilType);
-            }
-
-            return types;
-        }
-
-        private List<BodyLine> ParseInstructions(IEnumerable<Instruction> instructions)
-        {
-            var lines = new List<BodyLine>();
-            BodyLine line = null;
-            foreach (var instruction in instructions)
-            {
-                if (instruction.SequencePoint != null && instruction.SequencePoint.StartLine < 100) //new code line
-                {
-                    line = new BodyLine
-                    {
-                        Line = instruction.SequencePoint.StartLine,
-                        Instructions = new List<string>()
-                    };
-                    lines.Add(line);
-                }
-                line.Instructions.Add(instruction.ToString());
-            }
-
-            return lines;
-        }
-
     }
 }
